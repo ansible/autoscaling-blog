@@ -1,0 +1,197 @@
+---
+# tasks file for myapp_infra
+- name: create admin access 
+  local_action: 
+    module: ec2_group
+    name: admin_access
+    description: SSH access for admins and tower
+    region: "{{ region }}"
+    vpc_id: "{{ vpc_id }}"
+    rules:
+      - proto: tcp
+        from_port: 22
+        to_port: 22
+        group_id: "{{ tower_group }}"
+  tags: security_groups
+  register: admin_access
+
+- name: create app security group
+  local_action:
+    module: ec2_group
+    name: "{{ app_name }}"
+    description: "{{ app_name }} security group"
+    region: "{{ region }}"
+    rules:
+      - proto: tcp
+        from_port: 80
+        to_port: 80
+        cidr_ip: 0.0.0.0/0
+      - proto: tcp
+        from_port: 0
+        to_port: 65535
+        group_name: "{{ app_name }}"
+      - proto: udp
+        from_port: 0
+        to_port: 65535
+        group_name: "{{ app_name }}"
+      - proto: icmp
+        from_port: 0
+        to_port: 0
+        group_name: "{{ app_name }}"
+    vpc_id: "{{ vpc_id }}"
+  tags: security_groups
+  register: app_security_group
+
+- name: launch RDS instance
+  local_action:
+    module: rds
+    region: "{{ region }}"
+    engine_version: 9.3.3
+    command: create
+    instance_name: "{{ app_name }}"
+    subnet: default
+    db_engine: postgres
+    size: 10
+    instance_type: db.m1.small
+    username: root
+    password: password
+    vpc_security_groups: "{{ admin_access.group_id }},{{ app_security_group.group_id }}"
+    db_name: "{{ app_name }}"
+  tags: rds
+
+- name: launch load balancer
+  local_action:
+    module: ec2_elb_lb
+    name: "{{ app_name }}"
+    region: "{{ region }}"
+    state: present
+    zones: "{{ zones }}"
+    listeners:
+      - protocol: http
+        load_balancer_port: 80
+        instance_port: 80
+    health_check:
+        ping_protocol: http # options are http, https, ssl, tcp
+        ping_port: 80
+        ping_path: "/" # not required for tcp or ssl
+        response_timeout: 5 # seconds
+        interval: 30 # seconds
+        unhealthy_threshold: 2
+        healthy_threshold: 10
+  tags: load_balancer
+
+- name: create launch config
+  local_action:
+    module: ec2_lc
+    name: "{{ app_name }}"
+    image_id: "{{ ami }}"
+    key_name: "{{ key_name }}"
+    region: "{{ region }}"
+    security_groups: "{{ app_security_group.group_id }},{{ admin_access.group_id }}"
+    instance_type: "{{ instance_size }}"
+    user_data: |
+              #!/bin/bash
+              TOWER_ADDRESS={{ tower_address }}
+              HOST_CONFIG_KEY={{ job_key }}
+              TEMPLATE_ID={{ job_id }}
+                
+              
+              retry_attempts=10
+              attempt=0
+              while [[ $attempt -lt $retry_attempts ]]
+              do
+                status_code=`curl -k -s -i --data "host_config_key=$HOST_CONFIG_KEY" https://$TOWER_ADDRESS/api/v1/job_templates/$TEMPLATE_ID/callback/ | head -n 1 | awk '{print $2}'`
+                if [[ $status_code == 202 ]]
+                  then
+                  exit 0
+                fi
+                attempt=$(( attempt + 1 ))
+                echo "${status_code} received... retrying in 1 minute. (Attempt ${attempt})"
+                sleep 60
+              done
+              exit 1
+  tags: launch_config
+
+- name: create autoscale groups
+  local_action:
+    module: ec2_asg
+    name: "{{ app_name }}"
+    load_balancers: "{{ app_name }}"
+    availability_zones: "{{ zones | join(',')}}"
+    launch_config_name: "{{ app_name }}"
+    min_size: "{{ min_size }}"
+    max_size: "{{ max_size }}"
+    desired_capacity: "{{ desired_capacity }}"
+    region: "{{ region }}"
+    tags:
+    - role: "{{ app_name }}"
+  tags: autoscale_group
+
+- name: create scale down  policy
+  local_action:
+    module: ec2_scaling_policy
+    state: present
+    region: "{{ region }}"
+    name: scale-down-policy
+    adjustment_type: ChangeInCapacity
+    asg_name: "{{ app_name }}"
+    scaling_adjustment: -1
+    min_adjustment_step: -1
+    cooldown: 300
+  register: scale_down_policy
+  tags: scaling_policy
+
+- name: create scale up policy
+  local_action:
+    module: ec2_scaling_policy
+    state: present
+    region: "{{ region }}"
+    name: scale-up-policy
+    adjustment_type: ChangeInCapacity
+    asg_name: "{{ app_name }}"
+    scaling_adjustment: 1
+    min_adjustment_step: 1
+    cooldown: 300
+  register: scale_up_policy
+  tags: scaling_policy
+
+- name: create scale down alarm
+  ec2_metric_alarm:
+    state: present
+    region: "{{ region }}"
+    name: "cpu-low"
+    metric: CPUUtilization
+    namespace: "AWS/EC2"
+    statistic: Average
+    comparison: "<="
+    threshold: 5.0
+    period: 300
+    evaluation_periods: 3
+    unit: "Percent"
+    description: "This will alarm when a bamboo slave's cpu usage average is lower than 5% for 15 minutes "
+    dimensions: 
+      AutoScalingGroupName: "{{ app_name }}"
+    alarm_actions: 
+    - "{{ scale_down_policy.arn }}"
+  tags: alarm
+
+- name: create scale up alarm
+  ec2_metric_alarm:
+    state: present
+    region: "{{ region }}"
+    name: "cpu-high"
+    metric: CPUUtilization
+    namespace: "AWS/EC2"
+    statistic: Average
+    comparison: "<="
+    threshold: 5.0
+    period: 300
+    evaluation_periods: 3
+    unit: "Percent"
+    description: "This will alarm when a bamboo slave's cpu usage average is higher than 80% for 15 minutes "
+    dimensions: 
+      AutoScalingGroupName: "{{ app_name }}"
+    alarm_actions: 
+      - "{{ scale_up_policy.arn }}"
+  tags: alarm
+

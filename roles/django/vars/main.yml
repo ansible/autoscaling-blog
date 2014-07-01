@@ -1,0 +1,5 @@
+packages:
+  - Django14
+  - httpd
+
+apache_service: httpd

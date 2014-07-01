@@ -1,0 +1,3 @@
+- hosts: tag_aws_autoscaling_groupName_myapp
+  roles:
+  - django
