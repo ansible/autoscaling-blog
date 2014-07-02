@@ -92,8 +92,8 @@
     user_data: |
               #!/bin/bash
               TOWER_ADDRESS={{ tower_address }}
-              HOST_CONFIG_KEY={{ job_key }}
-              TEMPLATE_ID={{ job_id }}
+              HOST_CONFIG_KEY={{ host_config_key }}
+              TEMPLATE_ID={{ template_id }}
                 
               
               retry_attempts=10
