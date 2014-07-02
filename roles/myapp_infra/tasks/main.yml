@@ -15,6 +15,42 @@
   tags: security_groups
   register: admin_access
 
+- name: create tower client group
+  local_action:
+    module: ec2_group
+    name: tower_clients
+    description: tower clients are members of this group
+    region: "{{ region }}"
+    vpc_id: "{{ vpc_id }}"
+  tags: security_groups
+  register: tower_clients
+
+- name: update tower server group to allow tower clients
+  local_action:
+    module: ec2_group
+    name: Ansible Tower -10 instances--1-4-8-AutogenByAWSMP-
+    description: SSH access for admins and tower
+    region: "{{ region }}"
+    vpc_id: "{{ vpc_id }}"
+    rules:
+      - proto: tcp
+        from_port: 80
+        to_port: 80
+        cidr_ip: 0.0.0.0/0
+      - proto: tcp
+        from_port: 443
+        to_port: 443
+        cidr_ip: 0.0.0.0/0
+      - proto: tcp
+        from_port: 22
+        to_port: 22
+        cidr_ip: 0.0.0.0/0
+      - proto: tcp
+        from_port: 443
+        to_port: 443
+        group_name: tower_clients
+  tags: security_groups
+
 - name: create app security group
   local_action:
     module: ec2_group
@@ -87,7 +123,7 @@
     image_id: "{{ ami }}"
     key_name: "{{ key_name }}"
     region: "{{ region }}"
-    security_groups: "{{ app_security_group.group_id }},{{ admin_access.group_id }}"
+    security_groups: "{{ app_security_group.group_id }},{{ admin_access.group_id }},{{ tower_clients.group_id }}"
     instance_type: "{{ instance_size }}"
     user_data: |
               #!/bin/bash
