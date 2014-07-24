@@ -127,6 +127,8 @@
     instance_type: "{{ instance_size }}"
     user_data: |
               #!/bin/bash
+              exec > /tmp/autoscale.log 2>&1
+              set -x
               TOWER_ADDRESS={{ tower_address }}
               HOST_CONFIG_KEY={{ host_config_key }}
               TEMPLATE_ID={{ template_id }}
@@ -159,8 +161,10 @@
     max_size: "{{ max_size }}"
     desired_capacity: "{{ desired_capacity }}"
     region: "{{ region }}"
-    tags:
-    - role: "{{ app_name }}"
+tags:
+  - key: role
+    value: "{{ app_name }}"
+        propagate_at_launch: yes
   tags: autoscale_group
 
 - name: create scale down  policy
