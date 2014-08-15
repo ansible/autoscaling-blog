@@ -1,3 +1,3 @@
-- hosts: tag_aws_autoscaling_groupName_autoscaleblog
+- hosts: tag_aws_autoscaling_groupName_autoscale-blog
   roles:
   - apache

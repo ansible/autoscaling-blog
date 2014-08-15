@@ -12,13 +12,18 @@ Autoscaling is dependent on Ansible Tower's callback mechanism.  For those who a
 In our case, we'll be using the Ansible Tower AMI available on the AWS Marketplace to speed up the process.
 
 
-## Setting up the Tower Server
+## Setting up the Tower Environment
+
+### VPC and Subnets
+
+* Create or use a VPC.  Make note of VPC ID.
+* Create or use 2 or more subnets in VPC that are in unique Availability Zones. The Subnets should be able to route to out to the Internet. Make note of Subnet IDs. 
+
 
 ### Create a Security Group for Tower
 
 
-
-In the EC2 console, we need to create 3 security groups (for the lazy, see the appendix for an ansible playbook that will configure all of this):
+In the EC2 console, we need to create 3 security groups (for the lazy, see the appendix for an Ansible playbook that will configure all of this):
 
 * one for the instances that will be using Tower's call back feature
 * one for the Tower server itself that allows you to SSH to Tower and use Tower's web interface.
@@ -29,13 +34,13 @@ In the EC2 console, we need to create 3 security groups (for the lazy, see the a
 
 This is a group without any rules.  It will be assigned to the Launch Configuration of the instances that require callback access.  Make a note of the group ID after it is created.
 
-![image](images/tower_client_group.png)  
+![image](images/tower_callback_client_security_group.png)  
 
 
 ####Tower Server Security Group
 Create a custom security group for your Tower instance to live in.  I give myself access to SSH and HTTPS, and I give members of the security group I created above access to HTTPS as well.  Make a note of the group ID after it is created.
 
-![image](images/tower security group.png)  
+![image](images/tower_security_group.png)  
 
 The security group should allow you to SSH into the Tower instance, have HTTPS access to the Tower instances, and should be reachable by HTTPS by your managed instances for the callback feature to work.  
 
@@ -208,8 +213,7 @@ Assign the AWS credentials we created earlier using the **Cloud Credentials** di
 ### EC2 Infrastructure 
 
 | Item  | Description |
-|-----------------------------|------------------------------------------------------------------------------------------|
-| Admin Access Security Group | Who can access the application servers. |
+|-----------------------------|------------------------------|
 | App Security Group | Self-referencing group that allows members of this group to access all ports of members. |
 | Load Balancer | A load balancer for the app servers. |
 | Launch Configuration | A configuration used by the AutoScale group. |
