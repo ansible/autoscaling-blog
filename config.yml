@@ -1,3 +1,4 @@
 - hosts: tag_aws_autoscaling_groupName_autoscale-blog
+  sudo: yes
   roles:
   - apache
