@@ -38,7 +38,7 @@ This is a group without any rules.  It will be assigned to the Launch Configurat
 
 
 ####Tower Server Security Group
-Create a custom security group for your Tower instance to live in.  I give myself access to SSH and HTTPS, and I give members of the security group I created above access to HTTPS as well.  Make a note of the group ID after it is created.
+Create a custom security group for your Tower instance to live in.  I give myself access to SSH, HTTPS, and 8080, and I give members of the security group I created above access to HTTPS as well.  Make a note of the group ID after it is created.
 
 ![image](images/tower_security_group.png)  
 
@@ -52,6 +52,9 @@ This group is assigned to the instances that are managed by Tower.  It allows To
 
 
 ### Launching the Tower instance
+
+**Do we want to have to wait around for Amazon to deliver the AMI or should we just tell them how to install Tower**
+
 First launch the Tower AMI into the EC2 region of your choice. [Follow this link](http://www.ansible.com/tower) and click on the **Launch Tower in EC2** button.  You'll be greeted with a simple form to fill out.
 
 
@@ -181,7 +184,7 @@ Host callbacks are enabled for this template. The callback URL is: /api/v1/job_t
 The host configuration key is: ``` f1d8ab1d45b51be67afe372360f6c85c```
 
 
-## Creating the Provisioning Job Template
+## Creating the Infrastructure Provisioning Job Template
 
 This job template will be used to spin up the EC2 infrastructure using the infra.yml playbook.  
 
@@ -226,16 +229,52 @@ Assign the AWS credentials we created earlier using the **Cloud Credentials** di
 
 ## Running the Playbooks
 
-First we'll need to provision the AWS infrastructure, so find the **provisiong infrastructure** template and click the launch icon to kick it off.  
-The following happens automatically:
+First we'll need to provision the AWS infrastructure, and we'll kick that off interactively.  Click the rocket icon next to the *Provision Infrastructure* job template.
+
+![image](images/select_infrastructure_project.png)
+
+
+You'll be taken to a new screen that will show you the status of your job run.  When that job run is complete, i tshould look something like this:
+
+![image](images/provisioning_launch_status.png)
+
+We need to get the CNAME of the ELB that was launched and we'll use this to verify that instances are actually server web pages later, to do so, click on the task that says "launch load balancer", then Under *Host Events* click the localhost item.
+
+![image](images/select_provisioning_lb_task.png)
+
+Now a new window pops up, showing the result of that particular task.  Click the *Results* tab and see find the *dns_name*.  Make note of it.  We'll use that in our browser later to make sure everything is working.
+
+![image](images/view_lb_task_results.png)
+
+While you've been performing these actions, the following has happened
 
 1. The EC2 infrastructure playbook is run and all EC2 components described in the EC2 infrastructure table are created.
 2. The AutoScale Group is created and the initial 2 instances are launched
-3. The instances will both download the script you placed in S3 and run it
-4. That script phones home to Tower and requests Tower to configure the server with the template ID (in this case, the Configure Application template) that is in the URL.
-5. Tower checks to make sure that the instances are part of the inventory specified in the job template and also validates the host configuration key.
-6. Tower then configures the instances with the Configure Application template.
-7. The instances are configured and running your application
+3. That script phones home to Tower and requests Tower to configure the server with the template ID (in this case, the Configure Application template) that is in the URL.
+4. Tower checks to make sure that the instances are part of the inventory specified in the job template and also validates the host configuration key.
+5. Tower then configures the instances with the Configure OS job template.
+6. Instances are reachable via the load balancer URL.
+
+
+You can verify the callback happened by taking a look back at the Jobs tab.  You should see 2 new jobs with the name of *Configure OS*.  Those were the jobs that were launched via the callback mechanism.
+
+![image](images/instances_configured.png)
+
+
+Now to top if all off, let's curl the ELB CNAME we gathered earlier and verify that we're actually serving content:
+
+
+	myshell:~ curl autoscale-blog-78233852.us-east-1.elb.amazonaws.com
+	This is a test - Ubuntu 12.04  <br>
+	Current Host: ip-10-11-3-49 <br>
+
+
+## Additional Testing
+
+You can tweak our ASG group to increase the number of instances, or create traffic that causes a trigger to initiate an AutoScale event to test further.
+
+
+That's all, all folks!
 
 
 
