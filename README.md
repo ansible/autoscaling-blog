@@ -7,17 +7,16 @@ This article's goal is to show you how to provision EC2 AutoScale instances with
 
 ## Requirements
 
-Autoscaling is dependent on Ansible Tower's callback mechanism.  For those who aren't familiar, Tower is our commercial product.  It's free-for-life if your are using 10 servers or less.
-
-In our case, we'll be using the Ansible Tower AMI available on the AWS Marketplace to speed up the process.
+Autoscaling is dependent on Ansible Tower's callback mechanism.  For those who aren't familiar, Tower is our commercial product.  It's free-for-life if your are using 10 servers or less.  If you already have Tower setup in your AWS environment, you can skip to the **Configuring Tower Credentials** section.
 
 
 ## Setting up the Tower Environment
 
-### VPC and Subnets
+### VPC, Subnets, and keypair
 
 * Create or use a VPC.  Make note of VPC ID.
-* Create or use 2 or more subnets in VPC that are in unique Availability Zones. The Subnets should be able to route to out to the Internet. Make note of Subnet IDs. 
+* Create or use 2 or more subnets in VPC that are in unique Availability Zones. The Subnets should be able to route to out to the Internet. Make note of Subnet IDs.
+* Create or use a ec2 keypair that Tower will use to ssh into your instances.
 
 
 ### Create a Security Group for Tower
@@ -53,65 +52,19 @@ This group is assigned to the instances that are managed by Tower.  It allows To
 
 ### Launching the Tower instance
 
-**Do we want to have to wait around for Amazon to deliver the AMI or should we just tell them how to install Tower**
-
-First launch the Tower AMI into the EC2 region of your choice. [Follow this link](http://www.ansible.com/tower) and click on the **Launch Tower in EC2** button.  You'll be greeted with a simple form to fill out.
+```Put quick instructions on launching an instance with the proper security group, vpc, subnet we mentioned in the previous steps.  Provide instruction on how to download Tower, get license, and run Setup.```
 
 
-After that, you'll be presented with a CLICK HERE link.  When you click that you'll be redirected to AWS.
-
-For our testing purposes, we'll be launching the Ansible Tower (10 instances) license.  There's no additional charge to use this other than the standard EC2 operating charges.  Go ahead and click on that, and then on the next page, click on the yellow continue button.
-
-On this page, we'll make sure that we're selecting the latest version of Tower available on AWS.  At the time of this writing, that version is **UPDATEME**.  For the purpose of this article we'll be using US East.  The default instance type for Tower is m1.large, so go ahead and leave it at that for now.
-
-As far as the VPC is concerned, we'll be launching ours into our default VPC.  Choose an appropriate Subnet for your VPC also.
-
-The default security group is going to allow SSH, HTTP, and HTTPS.  I'd recommend you restrict the IP addresses that are allowed to connect to these ports as well.
-
-Finally, select the EC2 keypair to use to launch your instance, and click the Launch button at the top right of the screen.
-
-
-
-## Gather some information 
- 
-We need to gather some bits of data from the AWS console to supply as variables to our playbooks.
-
-We'll also need to gather the VPC ID that we'll be using for the demo.  For the purposes of this demo, it should be the same VPC ID we used to launch the Tower instance.  
-
-Hold on to this information for now, we'll user it later.
 
 ## Basic Tower Configuration
-
-Find the public address of the Tower instance you just launched in the EC2 console.  We'll ssh to it find the randomally generated admin password for tower in the login message:
-
-	ssh ubuntu@myinstance.compute-1.amazonaws.com
-	Welcome to Ubuntu 12.04.4 LTS (GNU/Linux 3.2.0-60-virtual x86_64)
-	
-	  Welcome to AnsibleWorks AWX!
-	
-	  Log into the web interface here:
-	
-	    https://myinstance.compute-1.amazonaws.com/
-	
-	    Username: admin
-	    Password: 2v9P7rmpfsHd
-	
-	  The documentation for AWX is available here:
-	
-	    http://www.ansibleworks.com/ansibleworks-awx/
-	
-	  For help, email support@ansibleworks.com.
-	
-	7 packages can be updated.
-	3 updates are security updates.
 	
 
-Now open your browser and go to https://myinstance.compute-1.amazonaws.com and login to Tower with admin as the user and the password you found in the previous step.
+Now open your browser and go to https://myinstance.compute-1.amazonaws.com and login to Tower with **admin**** as the user and **password**** as the passsword.  You'll be prompted to paste your license in there.
 
 ## Create an Organization
 
 
-Firstly, you'll want to create an Organization, typically named after the Organization you're working for.  In this case, we'll call our organization MyOrg.
+First, you'll want to create an Organization, typically named after the Organization you're working for.  In this case, we'll call our organization MyOrg.
 
 ![image](images/create_org.png)
 
@@ -127,7 +80,7 @@ The next step is to configure some credentials for Tower.  Click on the Credenti
 
 ### SSH Credentials
 
-Now we'll configure a set of credentials that Tower will use to SSH to the instances.  
+Now we'll configure a set of credentials that Tower will use to SSH to the instances.  These must be the ec2 keypair you created earlier.  
 
 ![image](images/add_ssh_cred.png)
 
@@ -156,7 +109,10 @@ Click on the newly created Inventory and click the + symbol to add a new group. 
 
 ![image](images/add_group.png)
 
-Click the Source tab and fill out the form as below:
+Click the Source tab and fill out the form as below.  Make not to set the Source Variables:
+
+    ---
+    vpc_destination_variable: private_ip_address
 
 ![image](images/set_group_src.png)
 
@@ -238,7 +194,7 @@ You'll be taken to a new screen that will show you the status of your job run.  
 
 ![image](images/provisioning_launch_status.png)
 
-We need to get the CNAME of the ELB that was launched and we'll use this to verify that instances are actually server web pages later, to do so, click on the task that says "launch load balancer", then Under *Host Events* click the localhost item.
+We need to get the CNAME of the ELB that was launched and we'll use this to verify that instances are actually server web pages later. To do so, click on the task that says "launch load balancer". Then Under *Host Events*, click the localhost item.
 
 ![image](images/select_provisioning_lb_task.png)
 
