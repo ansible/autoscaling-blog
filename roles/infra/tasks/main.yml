@@ -6,23 +6,7 @@
     name: "{{ app_name }}"
     description: "{{ app_name }} security group"
     region: "{{ region }}"
-    rules:
-      - proto: tcp
-        from_port: 80
-        to_port: 80
-        cidr_ip: 0.0.0.0/0
-      - proto: tcp
-        from_port: 0
-        to_port: 65535
-        group_name: "{{ app_name }}"
-      - proto: udp
-        from_port: 0
-        to_port: 65535
-        group_name: "{{ app_name }}"
-      - proto: icmp
-        from_port: 0
-        to_port: 0
-        group_name: "{{ app_name }}"
+    rules: "{{ sec_group_rules }}"
     vpc_id: "{{ vpc_id }}"
   tags: security_groups
   register: app_security_group
@@ -59,29 +43,7 @@
     region: "{{ region }}"
     security_groups: "{{ app_security_group.group_id }},{{ tower_callback_client_group_id }},{{ tower_client_group_id }}"
     instance_type: "{{ instance_size }}"
-    user_data: |
-              #!/bin/bash
-              exec > /tmp/autoscale.log 2>&1
-              set -x
-              TOWER_ADDRESS={{ tower_address }}
-              HOST_CONFIG_KEY={{ host_config_key }}
-              TEMPLATE_ID={{ template_id }}
-                
-              
-              retry_attempts=10
-              attempt=0
-              while [[ $attempt -lt $retry_attempts ]]
-              do
-                status_code=`curl -k -s -i --data "host_config_key=$HOST_CONFIG_KEY" https://$TOWER_ADDRESS/api/v1/job_templates/$TEMPLATE_ID/callback/ | head -n 1 | awk '{print $2}'`
-                if [[ $status_code == 202 ]]
-                  then
-                  exit 0
-                fi
-                attempt=$(( attempt + 1 ))
-                echo "${status_code} received... retrying in 1 minute. (Attempt ${attempt})"
-                sleep 60
-              done
-              exit 1
+    user_data: "{{ user_data }}"
   tags: launch_config
 
 - name: create autoscale groups
@@ -95,7 +57,7 @@
     desired_capacity: "{{ desired_capacity }}"
     region: "{{ region }}"
     vpc_zone_identifier: "{{ subnets | join(',') }}"
-    health_check_type: ELB
+    health_check_type: EC2
     health_check_period: 300
 
 
