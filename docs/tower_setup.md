@@ -110,5 +110,5 @@ Click the Source tab and fill out the form as below.  Make sure to set the Sourc
 
 ![image](images/set_group_src.png)
 
-Now click on the **Start sync process** icon.  ![image](docs/images/start_sync.png)
+Now click on the **Start sync process** icon.  ![image](images/start_sync.png)
 
