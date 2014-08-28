@@ -1,8 +1,7 @@
 ---
 # tasks file for myapp_infra
 - name: create app security group
-  action:
-    module: ec2_group
+  ec2_group:
     name: "{{ app_name }}"
     description: "{{ app_name }} security group"
     region: "{{ region }}"
@@ -13,13 +12,13 @@
 
 
 - name: launch load balancer
-  action:
-    module: ec2_elb_lb
+  ec2_elb_lb:
     name: "{{ app_name }}"
     region: "{{ region }}"
     state: present
     subnets: "{{ subnets | join(',') }}"
     security_group_ids: "{{ app_security_group.group_id }}"
+    connection_draining_timeout: 60
     listeners:
       - protocol: http
         load_balancer_port: 80
@@ -30,13 +29,12 @@
         ping_path: "/" # not required for tcp or ssl
         response_timeout: 5 # seconds
         interval: 30 # seconds
-        unhealthy_threshold: 2
-        healthy_threshold: 10
+        unhealthy_threshold: 5
+        healthy_threshold: 5
   tags: load_balancer
 
 - name: create launch config
-  action:
-    module: ec2_lc
+  ec2_lc:
     name: "{{ app_name }}"
     image_id: "{{ ami }}"
     key_name: "{{ key_name }}"
@@ -47,8 +45,7 @@
   tags: launch_config
 
 - name: create autoscale groups
-  action:
-    module: ec2_asg
+  ec2_asg:
     name: "{{ app_name }}"
     load_balancers: "{{ app_name }}"
     launch_config_name: "{{ app_name }}"
@@ -62,8 +59,7 @@
 
 
 - name: create scale down  policy
-  action:
-    module: ec2_scaling_policy
+  ec2_scaling_policy:
     state: present
     region: "{{ region }}"
     name: scale-down-policy
@@ -76,8 +72,7 @@
   tags: scaling_policy
 
 - name: create scale up policy
-  action:
-    module: ec2_scaling_policy
+  ec2_scaling_policy:
     state: present
     region: "{{ region }}"
     name: scale-up-policy
@@ -98,11 +93,11 @@
     namespace: "AWS/EC2"
     statistic: Average
     comparison: "<="
-    threshold: 5.0
+    threshold: 5
     period: 300
     evaluation_periods: 3
     unit: "Percent"
-    description: "This will alarm when a bamboo slave's cpu usage average is lower than 5% for 15 minutes "
+    description: "This will alarm when cpu usage average is lower than 5% for 15 minutes "
     dimensions: 
       AutoScalingGroupName: "{{ app_name }}"
     alarm_actions: 
@@ -118,11 +113,11 @@
     namespace: "AWS/EC2"
     statistic: Average
     comparison: "<="
-    threshold: 5.0
+    threshold: 90.0
     period: 300
     evaluation_periods: 3
     unit: "Percent"
-    description: "This will alarm when a bamboo slave's cpu usage average is higher than 80% for 15 minutes "
+    description: "This will alarm when cpu usage average is higher than 90% for 15 minutes "
     dimensions: 
       AutoScalingGroupName: "{{ app_name }}"
     alarm_actions: 
