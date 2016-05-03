@@ -42,7 +42,6 @@
     security_groups: "{{ app_security_group.group_id }},{{ tower_callback_client_group_id }},{{ tower_client_group_id }}"
     instance_type: "{{ instance_size }}"
     user_data: "{{ user_data }}"
-    assign_public_ip: true
   tags: launch_config
 
 - name: create autoscale groups
