@@ -1,11 +1,7 @@
 - name: stop iptables
   service: name=iptables state=stopped
-  become: yes
-  become_method: sudo
 
 - name: install packages (Red Hat)
   yum: name='{{ item }}' state=present
   with_items: packages
   tags: package
-  become: yes
-  become_method: sudo
