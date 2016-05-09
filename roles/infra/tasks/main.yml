@@ -93,7 +93,7 @@
     namespace: "AWS/EC2"
     statistic: Average
     comparison: "<="
-    threshold: 5
+    threshold: 5.0
     period: 300
     evaluation_periods: 3
     unit: "Percent"
