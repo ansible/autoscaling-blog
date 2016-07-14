@@ -13,8 +13,8 @@
   when: ansible_os_family  == "Debian"
 
 - name: copy index.html
-  template: src=index.html.j2 dest={{ apache_docroot }}/index.html
+  template: src=index.html.j2 dest='{{ apache_docroot }}/index.html'
 
 - name: start and enable apache service
-  service: name={{ apache_service }} state=started enabled=yes
+  service: name='{{ apache_service }}' state=started enabled=yes
   tags: service

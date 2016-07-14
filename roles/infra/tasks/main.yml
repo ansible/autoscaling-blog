@@ -112,7 +112,7 @@
     metric: CPUUtilization
     namespace: "AWS/EC2"
     statistic: Average
-    comparison: "<="
+    comparison: ">="
     threshold: 90.0
     period: 300
     evaluation_periods: 3
